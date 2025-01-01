@@ -2,8 +2,6 @@ use raylib::prelude::*;
 
 use crate::utils::{fact, hypot};
 
-const PARTICLE_RADIUS: f32 = 10.0;
-
 pub struct ParticalStorage {
     capacity_row: usize,
     capacity_col: usize,
@@ -16,7 +14,6 @@ pub struct Particle {
     prev_pos: Vector2,
     is_pinned: bool,
     accl: Vector2,
-    radius: f32,
 }
 
 pub struct Constraint {
@@ -46,10 +43,6 @@ impl ParticalStorage {
         self.particles.push(Particle::new(x, y, is_pinned));
     }
 
-    pub fn get_mut_particles(&mut self) -> &mut Vec<Particle> {
-        &mut self.particles
-    }
-
     pub fn satisfy_gravity(&mut self, gravity: f32, time_step: f32) {
         for item in self.particles.iter_mut() {
             item.apply_force(Vector2::new(0.0, gravity));
@@ -60,7 +53,7 @@ impl ParticalStorage {
     pub fn draw_particles(&mut self, d: &mut RaylibDrawHandle, window_width: i32, window_height: i32) {
         for item in self.particles.iter_mut() {
             item.constraint_to_bounds(window_width as f32, window_height as f32);
-            d.draw_circle_v(item.get_position(), item.get_radius(), Color::WHITE);
+            d.draw_pixel_v(item.get_position(), Color::WHITE);
         }
     }
 
@@ -114,7 +107,6 @@ impl Particle {
             prev_pos: Vector2::new(x, y),
             is_pinned: is_pinned,
             accl: Vector2::new(0.0, 0.0),
-            radius: PARTICLE_RADIUS,
         }
     }
 
@@ -126,10 +118,6 @@ impl Particle {
         if !self.is_pinned {
             self.pos = pos;
         }
-    }
-
-    pub fn get_radius(&self) -> f32 {
-        self.radius
     }
 
     pub fn apply_force(&mut self, force: Vector2) {
@@ -149,10 +137,10 @@ impl Particle {
     }
 
     pub fn constraint_to_bounds(&mut self, width: f32, height: f32) {
-        if self.pos.x < self.radius { self.pos.x = self.radius }
-        if self.pos.x > width - self.radius { self.pos.x = width - self.radius }
-        if self.pos.y < self.radius { self.pos.y = self.radius }
-        if self.pos.y > height - self.radius { self.pos.y = height - self.radius }
+        if self.pos.x < 0.0 { self.pos.x = 0.0 }
+        if self.pos.x > width { self.pos.x = width }
+        if self.pos.y < 0.0 { self.pos.y = 0.0 }
+        if self.pos.y > height { self.pos.y = height }
     }
 }
 
