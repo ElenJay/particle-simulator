@@ -2,6 +2,7 @@ mod particle;
 mod utils;
 
 use raylib::prelude::*;
+use raylib::consts::MouseButton::*;
 
 use particle::ParticalStorage;
 
@@ -26,13 +27,18 @@ fn main() {
             particle_storage.add(
                 i as f32 * particle_dist + WINDOW_WIDTH as f32 / 3.0, 
                 j as f32 * particle_dist + WINDOW_HEIGHT as f32 / 3.0,
-                false,
+                j == 0,
             );
         }
     }
     particle_storage.add_constraints();
 
     while !rl.window_should_close() {
+        let mouse_pos = rl.get_mouse_position();
+        if rl.is_mouse_button_released(MOUSE_BUTTON_LEFT) {
+            particle_storage.tear_cloth(mouse_pos);
+        }
+
         let mut d = rl.begin_drawing(&thread);
         d.clear_background(Color::BLACK);
 

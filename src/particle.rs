@@ -1,6 +1,8 @@
 use raylib::prelude::*;
 
-use crate::utils::{fact, hypot};
+use crate::utils::{fact, hypot, point_to_segment_distance_v};
+
+const CLICK_TOLERANCE: f32 = 15.0;
 
 pub struct ParticalStorage {
     capacity_row: usize,
@@ -20,6 +22,7 @@ pub struct Constraint {
     pub p1_index: usize,
     pub p2_index: usize,
     init_length: f32,
+    is_active: bool,
 }
 
 impl ParticalStorage {
@@ -28,7 +31,7 @@ impl ParticalStorage {
         let constraints_capacity: usize = if capacity_row * capacity_col < 10 {
             fact(particles_capacity) / fact(particles_capacity - 2) / 2
         } else {
-            (2 * capacity_row * capacity_col + 2) as usize
+            (2 * capacity_row * capacity_col) as usize
         };
 
         Self {
@@ -41,6 +44,14 @@ impl ParticalStorage {
 
     pub fn add(&mut self, x: f32, y: f32, is_pinned: bool) {
         self.particles.push(Particle::new(x, y, is_pinned));
+    }
+
+    pub fn tear_cloth(&mut self, pos: Vector2) {
+        let result: Option<&mut Constraint> = self.find_nearest_constraint(pos.x, pos.y);
+        if !result.is_none() {
+            let constr = result.unwrap();
+            constr.deactivate();
+        }
     }
 
     pub fn satisfy_gravity(&mut self, gravity: f32, time_step: f32) {
@@ -75,13 +86,13 @@ impl ParticalStorage {
                     }
                 }
             }
-            self.constraints.push(Constraint::new(0, self.capacity_row * self.capacity_col - 1, &self.particles));
-            self.constraints.push(Constraint::new(self.capacity_row * (self.capacity_col - 1), self.capacity_col - 1, &self.particles));
         }
     }
 
     pub fn satisfy_constraints(&mut self) {
         for item in self.constraints.iter() {
+            if !item.get_active() { continue; }
+
             let correction = item.get_correction(&self.particles);
             let p1_pos = self.particles[item.p1_index].get_position();
             let p2_pos = self.particles[item.p2_index].get_position();
@@ -91,8 +102,29 @@ impl ParticalStorage {
         }
     }
 
+    pub fn find_nearest_constraint(&mut self, x: f32, y: f32) -> Option<&mut Constraint> {
+        let mut min_dist: f32 = CLICK_TOLERANCE;
+        let mut dist: f32;
+        let mut p1_pos: Vector2;
+        let mut p2_pos: Vector2;
+        let mut nearest_constr: Option<&mut Constraint> = None;
+        
+        for item in self.constraints.iter_mut() {
+            p1_pos = self.particles[item.p1_index].get_position();
+            p2_pos = self.particles[item.p2_index].get_position();
+            dist = point_to_segment_distance_v(x, y, p1_pos.x, p1_pos.y, p2_pos.x, p2_pos.y);
+            if dist < min_dist {
+                min_dist = dist;
+                nearest_constr = Some(item);
+            }
+        }
+        nearest_constr
+    }
+
     pub fn draw_constraints(&self, d: &mut RaylibDrawHandle) {
         for item in self.constraints.iter() {
+            if !item.get_active() { continue; }
+
             let p1_pos = self.particles[item.p1_index].get_position();
             let p2_pos = self.particles[item.p2_index].get_position();
             d.draw_line_ex(p1_pos, p2_pos, 1.0, Color::WHITE);
@@ -151,6 +183,7 @@ impl Constraint {
             p1_index: p1_index,
             p2_index: p2_index,
             init_length: hypot(delta.x, delta.y),
+            is_active: true,
         }
     }
 
@@ -161,5 +194,13 @@ impl Constraint {
         let correction: Vector2 = delta * 0.5 * diff;
 
         correction
+    }
+
+    pub fn get_active(&self) -> bool {
+        self.is_active
+    }
+
+    pub fn deactivate(&mut self) {
+        self.is_active = false;
     }
 }
